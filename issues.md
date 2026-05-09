@@ -98,4 +98,43 @@ curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash -s -- --yes-i-accept-third-
 
 ---
 
+### ISSUE-007 — `max_completion_tokens` rejected on Nemotron 3 Super 120B
+**Severity:** Medium — breaks any client using the modern OpenAI parameter name
+**Discovered:** 2026-04-30 (independently rediscovered during tutorial development 2026-05-08)
+**Status:** Open — known to Nebius, tracked internally
+
+**Description:** Sending `max_completion_tokens` to `nvidia/nemotron-3-super-120b-a12b` via the public Token Factory endpoint returns HTTP 400:
+
+```
+{"detail":"Invalid request. ... [{'type': 'extra_forbidden', 'loc': ('body', 'max_completion_tokens'), 'msg': 'Extra inputs are not permitted', 'input': 10}]"}
+```
+
+`max_tokens` (the OpenAI-deprecated parameter name) works. The bug is Nemotron-3-Super-specific — `max_completion_tokens` is accepted on other models served via Nebius Token Factory.
+
+**Likely root cause:** a request-rewriting layer between the public endpoint and the inference engine appears to inject `max_tokens` when omitted, so a client sending `max_completion_tokens` ends up with *both* parameters on the wire. The engine serving Nemotron 3 Super then rejects the request via strict schema validation. The engine accepts `max_completion_tokens` cleanly when called directly without that rewrite.
+
+**Impact:** Any client using a current OpenAI SDK or OpenAI-compatible framework will default to `max_completion_tokens` (OpenAI deprecated `max_tokens` in 2024), and will hit a 400 against this model with no obvious cause from the error message.
+
+**Workaround:** Force the request to use `max_tokens` instead of `max_completion_tokens` when targeting `nvidia/nemotron-3-super-120b-a12b`. In the OpenAI Python SDK, this typically means setting the param via `extra_body={"max_tokens": N}` and omitting `max_completion_tokens`.
+
+**Reproduction:**
+
+```bash
+# Fails with 400
+curl -sS -X POST "https://api.tokenfactory.us-central1.nebius.com/v1/chat/completions" \
+  -H "Authorization: Bearer $NEBIUS_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"nvidia/nemotron-3-super-120b-a12b","messages":[{"role":"user","content":"hi"}],"max_completion_tokens":10}'
+
+# Works
+curl -sS -X POST "https://api.tokenfactory.us-central1.nebius.com/v1/chat/completions" \
+  -H "Authorization: Bearer $NEBIUS_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"nvidia/nemotron-3-super-120b-a12b","messages":[{"role":"user","content":"hi"}],"max_tokens":10}'
+```
+
+**Expected fix (Nebius):** Stop injecting `max_tokens` for requests that already specify `max_completion_tokens`, so the request reaches the inference engine with only the parameter the client sent.
+
+**Cross-reference to ISSUE-006:** the working response in this report is itself a clean reproduction of the reasoning-content failure mode — `content: ""`, `reasoning_content` populated, `finish_reason: "length"` under a small token budget.
+
+---
+
 *Last updated: 2026-05-08*
