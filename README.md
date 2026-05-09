@@ -88,7 +88,7 @@ The first sandbox build takes ~6 minutes.
 
 ---
 
-### 4 — Fix Telegram and verify
+### 4 — Verify
 
 Connect to your sandbox:
 
@@ -96,14 +96,7 @@ Connect to your sandbox:
 nemoclaw price-intel connect
 ```
 
-Apply this fix before anything else — the NemoClaw wizard writes an invalid Telegram config value that silently crashes the gateway:
-
-```bash
-sed -i 's/"groupPolicy": "mentions"/"groupPolicy": "allowlist"/' ~/.openclaw/openclaw.json
-nohup openclaw gateway > /tmp/gateway.log 2>&1 &
-```
-
-> **Note:** this fix doesn't survive a sandbox rebuild — re-apply it each time. Bug filed with NVIDIA ([ISSUE-001](issues.md#issue-001--telegram-wizard-writes-invalid-grouppolicy-value)).
+> **NemoClaw < v0.0.35 only:** earlier versions wrote an invalid Telegram `groupPolicy` value that silently crashed the gateway. Fixed in v0.0.35 ([PR #3023](https://github.com/NVIDIA/NemoClaw/pull/3023)). If you're stuck on an older version, see the workaround in [ISSUE-001](issues.md#issue-001--telegram-wizard-writes-invalid-grouppolicy-value).
 
 Test inference:
 

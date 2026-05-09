@@ -7,21 +7,21 @@ Bugs and gaps discovered during tutorial development. Flag to the relevant teams
 ## NVIDIA / NemoClaw
 
 ### ISSUE-001 — Telegram wizard writes invalid groupPolicy value
-**Severity:** High — silently breaks Telegram bridge  
-**Discovered:** 2026-05-06  
-**Status:** Filed — [NVIDIA/NemoClaw#3274](https://github.com/NVIDIA/NemoClaw/issues/3274)  
+**Severity:** High — silently breaks Telegram bridge
+**Discovered:** 2026-05-06
+**Status:** Fixed — merged in [NVIDIA/NemoClaw#3023](https://github.com/NVIDIA/NemoClaw/pull/3023), shipped in **v0.0.35** (2026-05-06). Originally filed as [#3274](https://github.com/NVIDIA/NemoClaw/issues/3274).
 
-**Description:** During `nemoclaw onboard`, the prompt "Reply only when @mentioned? [Y/n]" writes `"groupPolicy": "mentions"` into the OpenClaw config. OpenClaw only accepts `"open"`, `"disabled"`, or `"allowlist"`. The gateway process validates config on startup and exits immediately on finding the invalid value, killing the Telegram bridge with no clear error message.
+**Description:** During `nemoclaw onboard`, the prompt "Reply only when @mentioned? [Y/n]" wrote `"groupPolicy": "mentions"` into the OpenClaw config. OpenClaw only accepted `"open"`, `"disabled"`, or `"allowlist"`. The gateway validated config on startup and exited immediately on finding the invalid value, killing the Telegram bridge with no clear error.
 
-**Symptoms:** CLI inference works; Telegram is unresponsive; `openclaw agent` logs "gateway closed (1006 abnormal closure)".
+**Symptoms (pre-v0.0.35):** CLI inference works; Telegram is unresponsive; `openclaw agent` logs "gateway closed (1006 abnormal closure)".
 
-**Workaround:**
+**Workaround for users on NemoClaw < v0.0.35:**
 ```bash
 sed -i 's/"groupPolicy": "mentions"/"groupPolicy": "allowlist"/' ~/.openclaw/openclaw.json
 nohup openclaw gateway > /tmp/gateway.log 2>&1 &
 ```
 
-**Expected fix:** Map `"mentions"` → `"allowlist"` in the wizard or in `generate-openclaw-config.py`.
+**Fix shipped:** PR #3023 replaces the invalid `groupPolicy` enum with a per-group `requireMention` boolean, so the onboarding choice now produces a config value the gateway accepts. Upgrade to v0.0.35+ and the workaround is no longer needed.
 
 ---
 

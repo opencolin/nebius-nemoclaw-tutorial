@@ -28,22 +28,22 @@ NemoClaw's **Option 3 (Other OpenAI-compatible endpoint)** path hardcodes `NEMOC
 
 **Recommendation for Nebius team:** expose a non-reasoning inference mode for Nemotron models via the OpenAI-compatible endpoint, or document this limitation in the Token Factory + NemoClaw integration guide.
 
-### Known issue: NemoClaw wizard writes invalid Telegram groupPolicy
+### Known issue: NemoClaw wizard writes invalid Telegram groupPolicy (fixed in v0.0.35)
 
-During `nemoclaw onboard`, the prompt "Reply only when @mentioned? [Y/n]" writes `"groupPolicy": "mentions"` into the sandbox config. OpenClaw does not accept `"mentions"` — valid values are `"open"`, `"disabled"`, and `"allowlist"`. The gateway process validates the config on startup and exits immediately on finding an invalid value, silently killing the Telegram bridge.
+> ✅ **Fixed in NemoClaw v0.0.35** (2026-05-06) — see [PR #3023](https://github.com/NVIDIA/NemoClaw/pull/3023). If you're on v0.0.35 or later you can skip this section. The workaround below is preserved for anyone on an older version.
 
-**Symptoms:** CLI inference works (embedded mode bypasses the gateway), but Telegram is unresponsive.
+In NemoClaw < v0.0.35, the `nemoclaw onboard` prompt "Reply only when @mentioned? [Y/n]" wrote `"groupPolicy": "mentions"` into the sandbox config. OpenClaw did not accept `"mentions"` — valid values were `"open"`, `"disabled"`, and `"allowlist"`. The gateway validated the config on startup and exited immediately on finding the invalid value, silently killing the Telegram bridge.
 
-**Workaround** — patch the config and start the gateway manually after connecting to the sandbox:
+**Symptoms (pre-v0.0.35):** CLI inference works (embedded mode bypasses the gateway), but Telegram is unresponsive.
+
+**Workaround (pre-v0.0.35 only)** — patch the config and start the gateway manually after connecting to the sandbox:
 
 ```bash
 sed -i 's/"groupPolicy": "mentions"/"groupPolicy": "allowlist"/' ~/.openclaw/openclaw.json
 nohup openclaw gateway > /tmp/gateway.log 2>&1 &
 ```
 
-> ⚠️ This patch does not survive a sandbox rebuild. If you rebuild, re-apply it.
-
-**Permanent fix:** requires a change in NemoClaw's wizard or `generate-openclaw-config.py` to map the "mentions" answer to `"allowlist"` before baking it into the sandbox image.
+> ⚠️ The patch does not survive a sandbox rebuild. If you rebuild on an old version, re-apply it.
 
 ---
 
