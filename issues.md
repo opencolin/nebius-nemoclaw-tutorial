@@ -78,23 +78,30 @@ curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash -s -- --yes-i-accept-third-
 
 ## Nebius Token Factory
 
-### ISSUE-006 — All Nebius Nemotron models are incompatible with NemoClaw Option 3
-**Severity:** High — blocks the natural NVIDIA-on-Nebius integration path  
-**Discovered:** 2026-05-06  
-**Status:** Filed — [NVIDIA/NemoClaw#3279](https://github.com/NVIDIA/NemoClaw/issues/3279) + [nebius/api#211](https://github.com/nebius/api/issues/211)  
+### ISSUE-006 — Nebius Nemotron models incompatible with NemoClaw Option 3
+**Severity:** Originally High — now narrow edge case
+**Discovered:** 2026-05-06
+**Status:** Largely fixed — retested 2026-06-06. Filed: [NVIDIA/NemoClaw#3279](https://github.com/NVIDIA/NemoClaw/issues/3279) (open, [PR #3286](https://github.com/NVIDIA/NemoClaw/pull/3286) in review) + [nebius/api#211](https://github.com/nebius/api/issues/211) (close suggested, see comment dated 2026-06-06).
 
-**Description:** All three NVIDIA Nemotron models available on Nebius Token Factory (`Llama-3_1-Nemotron-Ultra-253B-v1`, `nemotron-3-super-120b-a12b`, `NVIDIA-Nemotron-3-Nano-30B-A3B`) are reasoning models. They return responses in `reasoning_content` with empty `content`. NemoClaw's Option 3 (OpenAI-compatible endpoint) hardcodes `NEMOCLAW_REASONING=false` and checks `choices[0].message.content`, causing:
+**Original description:** All three NVIDIA Nemotron models available on Token Factory at filing time (`Llama-3_1-Nemotron-Ultra-253B-v1`, `nemotron-3-super-120b-a12b`, `NVIDIA-Nemotron-3-Nano-30B-A3B`) were reasoning models. They returned responses in `reasoning_content` with empty `content`. NemoClaw's Option 3 (OpenAI-compatible endpoint) hardcodes `NEMOCLAW_REASONING=false` and checks `choices[0].message.content`, causing:
 
 1. Smoke check failure during onboarding (32-token budget exhausted by reasoning, `content` is null/empty)
 2. 400 errors when OpenClaw attempts tool calls (not supported by reasoning models via the OpenAI-compatible wrapper)
 
-**Root cause:** NemoClaw is designed to use Nemotron through NVIDIA's own endpoint (Option 1), where it sets `NEMOCLAW_REASONING=true`. Third-party OpenAI-compatible wrappers (Option 3) receive no reasoning-mode signal.
+**Retest 2026-06-06 — 4-test matrix (naked / `detailed thinking off` system prompt / `chat_template_kwargs: {enable_thinking: false}` / tool call) at 512 `max_tokens`:**
 
-**Workaround:** Use a non-reasoning model — `deepseek-ai/DeepSeek-V3.2`, `meta-llama/Llama-3.3-70B-Instruct`, or `NousResearch/Hermes-4-70B`.
+| Model | Verdict |
+|---|---|
+| `nvidia/Nemotron-3-Ultra-550b-a55b` (new) | ✅ Works natively |
+| `nvidia/Cosmos3-Super-Reasoner` (new) | ✅ Works (one quirk under `detailed thinking off`) |
+| `nvidia/nemotron-3-super-120b-a12b` | ✅ Works (`content` populated alongside `reasoning_content`; NemoClaw reading `content` succeeds) |
+| `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` | ✅ Works natively |
+| `nvidia/Nemotron-3-Nano-Omni` | ✅ Works natively |
+| `nvidia/Llama-3_1-Nemotron-Ultra-253B-v1` | ❌ Still broken — `content` is a `<think>...` trace, truncated at typical budgets; tool call returns refusal text instead of a `tool_call` |
 
-**Expected fix (Nebius):** Expose a non-reasoning inference mode for Nemotron models via the OpenAI-compatible endpoint, or document the incompatibility clearly in the NemoClaw integration guide.
+**Current scope:** Limited to `Llama-3_1-Nemotron-Ultra-253B-v1`. Workaround for that one model: prepend system prompt `"detailed thinking off"` and give a larger token budget. All other Nemotron models on Token Factory now work through NemoClaw's Option 3 path with no configuration changes.
 
-**Expected fix (NVIDIA):** Allow `NEMOCLAW_REASONING` to be set as a runtime flag during Option 3 onboarding, or detect reasoning-model responses and handle them gracefully.
+**Tutorial recommendation:** Feature `nvidia/Nemotron-3-Ultra-550b-a55b` or `nvidia/Nemotron-3-Nano-Omni` if showcasing Nemotron on NemoClaw + Token Factory. Avoid `Llama-3_1-Nemotron-Ultra-253B-v1` in default onboarding flows.
 
 ---
 
